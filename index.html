@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title>RS Web Sync</title>
+    <meta name="robots" content="index, follow" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <meta name="description"
+        content="SQL Server Reporting Service Web Sync for Bulk Download and Upload between local PC folder & files and SSRS" />
+</head>
+
+<body style="background-color: gainsboro;">
+    <script src="./main.js"></script>
+
+    <nav class="navbar sticky-top navbar-expand-lg navbar-light" style="background-color: #e3f2fd;">
+        <a class="navbar-brand text-secondary" href="#"><i class="fas fa-copy text-danger"></i> <i
+                class="fas fa-sync text-success"></i> <i class="fas fa-server text-primary"></i> <strong>RS Web
+                Sync</strong></a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNavAltMarkup"
+            aria-controls="navbarNavAltMarkup" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNavAltMarkup">
+            <ul class="nav nav-pills mr-auto" id="pills-tab" role="tablist">
+                <li class="nav-item">
+                    <a class="nav-link active" id="download" data-toggle="pill" href="#" role="tab" aria-selected="true"
+                        data-bind="click: function() { window.vm.setMode('download'); }"><i class="fas fa-download"></i>
+                        Download</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" id="upload" data-toggle="pill" href="#" role="tab" aria-selected="false"
+                        data-bind="click: function() { window.vm.setMode('upload'); }"><i class="fas fa-upload"></i>
+                        Upload</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" id="about" data-toggle="pill" href="./about.html" role="tab"
+                        aria-selected="false"><i class="fas fa-address-card"></i>
+                        About</a>
+                </li>
+            </ul>
+            <span class="navbar-text text-secondary">
+                <i class="fas fa-user"></i> <span
+                    data-bind="text: user().DisplayName || user().Username, attr: { title: user().Username }"></span>
+            </span>
+        </div>
+    </nav>
+    <div class="container-fluid body-content">
+        <div class="row pt-3">
+            <div class="col-md-12 input-group mb-3">
+                <input type="text" class="form-control" data-bind="textInput: url"
+                    placeholder="Drop or type SSRS Web Portal URL or its subfolder here" />
+                <div class="input-group-append">
+                    <button class="btn btn-primary" data-bind="click: loadRemotes"><i class="fas fa-sync"></i>
+                        Load</button>
+                    <button class="btn btn-warning" data-bind="click: clear"><i class="fas fa-times"></i>
+                        Clear</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="row pb-3" data-bind="visible: mode() == 'upload'">
+            <div class="col-md-12">
+                <div id="dropzone" class="table w-100">
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="h6 card-header bg-primary text-light"
+                        data-bind="css: { withBtnXs: mode() != 'upload' }">
+                        <div class="d-flex justify-content-between">
+                            <span> <i class="fas fa-sign-out-alt"></i> Source
+                            </span>
+                            <span>&nbsp;</span>
+                            <div class="form-check-inline" data-bind="visible: mode() == 'upload'">
+                                <input class="form-check-input" type="checkbox" id="includeRootFolder"
+                                    data-bind="checked: includeRootFolder" />
+                                <label class="form-check-label" for="includeRootFolder">
+                                    Include Root Folder
+                                </label>
+                            </div>
+                            <div data-bind="visible: mode() != 'upload'">
+                                <div class="form-inline">
+                                    <input type="text" class="mr-2" data-bind="textInput: downloadFileName"
+                                        placeholder="Drop or type the download file name here" />
+                                    <button class="btn btn-xs btn-light" data-bind="click: run"><i
+                                            class=" fas fa-download"></i>
+                                        Download</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div id="srcTree"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6" data-bind="visible: mode() == 'upload'">
+                <div class="card">
+                    <div class="h6 card-header bg-primary text-light withBtnXs">
+                        <div class="d-flex justify-content-between">
+                            <span><i class="fas fa-sign-in-alt"></i> Destination</span>
+                            <span>&nbsp;</span>
+                            <div>
+                                <div class="form-check-inline">
+                                    <input class="form-check-input" type="checkbox" id="reUploadErrorOnly"
+                                        data-bind="checked: reUploadErrorOnly" />
+                                    <label class="form-check-label" for="reUploadErrorOnly">
+                                        Re-Upload Error Only
+                                    </label>
+                                </div>
+                                <button class="btn btn-xs btn-light" data-bind="click: run"><i
+                                        class="fas fa-upload"></i>
+                                    Upload</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div id="destTree"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <hr />
+
+        <footer>
+            <p>
+                &copy; 2021 - RS Web Sync by
+                <a href="mailto:NeetoSoft@gmail.com">NeetoSoft@gmail.com</a>
+            </p>
+        </footer>
+    </div>
+
+    <script type="text/html" id="dzTemplate">
+        <div class="dz-file-preview dz-details file-row">
+            <div class="dz-filename"><span data-dz-name></span></div>
+            <div class="dz-size"><span data-dz-size></span></div>
+            <div class="dz-fullpath d-none d-md-block"></div>
+            <div class="dz-status"></div>
+            <div class="dz-error-message d-none d-lg-block"><span data-dz-errormessage></span></div>
+            <div class="dz-full-message d-none"></div>
+        </div>          
+    </script>
+    <script type="text/html" id="dzSpinner">
+        <span><i class="fas fa-spinner fa-spin"></i></span>
+    </script>
+    <script type="text/html" id="dzSuccess">
+        <span class="text-success"><i class="fas fa-check"></i></span>
+    </script>
+    <script type="text/html" id="dzError">
+        <span class="text-danger"><i class="fas fa-times"></i></span>
+    </script>
+</body>
+
+</html>

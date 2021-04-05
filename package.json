@@ -1,0 +1,44 @@
+{
+  "name": "rswebsync",
+  "version": "1.0.0",
+  "description": "Reporting Service Web Sync",
+  "main": "index.html",
+  "scripts": {
+    "start": "parcel index.html",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "NeetoSoft",
+  "private": true,
+  "license": "ISC",
+  "devDependencies": {
+    "@fortawesome/fontawesome-free": "^5.15.3",
+    "@types/dropzone": "^5.7.3",
+    "@types/isomorphic-fetch": "0.0.35",
+    "@types/jquery": "^3.5.5",
+    "@types/jquery.fancytree": "0.0.6",
+    "@types/jszip": "^3.4.1",
+    "@types/knockout": "^3.4.70",
+    "@types/lodash": "^4.14.168",
+    "@types/toastr": "^2.1.38",
+    "parcel-bundler": "^1.12.5",
+    "sass": "^1.32.8",
+    "typescript": "^4.2.3"
+  },
+  "dependencies": {
+    "bootstrap": "^4.6.0",
+    "dropzone": "^5.8.1",
+    "es6-promise": "^4.2.8",
+    "fetch": "^1.1.0",
+    "gasparesganga-jquery-loading-overlay": "^2.1.7",
+    "istextorbinary": "^5.12.0",
+    "jquery": "^3.6.0",
+    "jquery.fancytree": "^2.38.0",
+    "jszip": "^3.6.0",
+    "knockout": "^3.5.1",
+    "lodash": "^4.17.21",
+    "popper.js": "^1.16.1",
+    "portable-fetch": "^3.0.0",
+    "toastr": "^2.1.4",
+    "url": "^0.11.0"
+  }
+}
