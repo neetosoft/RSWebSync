@@ -7,7 +7,7 @@
     "start": "parcel index.html info.html",
     "test": "parcel build index.html info.html"
   },
-  "author": "Ronald Wang",
+  "author": "NeetoSoft",
   "license": "ISC",
   "devDependencies": {
     "@fortawesome/fontawesome-free": "^5.15.3",
