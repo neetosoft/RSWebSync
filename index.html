@@ -3,20 +3,30 @@
 
 <head>
     <meta charset="utf-8" />
-    <title>RS Web Sync</title>
+    <title>RSWebSync</title>
     <meta name="robots" content="index, follow" />
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
     <meta name="description"
         content="SQL Server Reporting Service Web Sync for Bulk Download and Upload between local PC folder & files and SSRS" />
+    <link rel="icon" href="./favicon.ico" />
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-Q3E01YDW7H"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+
+        gtag('config', 'G-Q3E01YDW7H');
+    </script>
 </head>
 
 <body style="background-color: gainsboro;">
     <script src="./main.js"></script>
 
     <nav class="navbar sticky-top navbar-expand-lg navbar-light" style="background-color: #e3f2fd;">
-        <a class="navbar-brand text-secondary" href="#"><i class="fas fa-copy text-danger"></i> <i
-                class="fas fa-sync text-success"></i> <i class="fas fa-server text-primary"></i> <strong>RS Web
-                Sync</strong></a>
+        <a class="navbar-brand text-primary" href="#"><i class="fas fa-copy text-danger"></i> <i
+                class="fas fa-sync text-success"></i> <i class="fas fa-server text-info"></i>
+            <strong>RSWebSync</strong></a>
         <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNavAltMarkup"
             aria-controls="navbarNavAltMarkup" aria-expanded="false" aria-label="Toggle navigation">
             <span class="navbar-toggler-icon"></span>
@@ -34,12 +44,12 @@
                         Upload</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" id="about" data-toggle="pill" href="./about.html" role="tab"
-                        aria-selected="false"><i class="fas fa-address-card"></i>
+                    <a class="nav-link" id="about" href="#" role="tab" aria-selected="false"><i
+                            class="fas fa-info-circle"></i>
                         About</a>
                 </li>
             </ul>
-            <span class="navbar-text text-secondary">
+            <span class="navbar-text text-primary" data-toggle="modal" data-target="#configModal" role="button">
                 <i class="fas fa-user"></i> <span
                     data-bind="text: user().DisplayName || user().Username, attr: { title: user().Username }"></span>
             </span>
@@ -61,40 +71,82 @@
 
         <div class="row pb-3" data-bind="visible: mode() == 'upload'">
             <div class="col-md-12">
-                <div id="dropzone" class="table w-100">
+                <div id="dropzone" class="dropzone" title="nguik nguik">
+                    <div class="dz-message" data-dz-message>
+                        To upload => drop a folder here OR click here and drop / select a folder from the dialog
+                    </div>
                 </div>
             </div>
         </div>
 
-        <div class="row">
+        <form>
+            <div class="form-group row">
+                <label for="syncRoot" class="col-md-1 col-form-label text-primary">Sync Root</label>
+                <div class="col-md-11">
+                    <input class="form-control" id="syncRoot" readonly
+                        data-bind="textInput: !syncRoot() ? '' : syncRoot().getPath().replace('//', '/')" />
+                </div>
+            </div>
+        </form>
+
+        <div class="row pb-3">
             <div class="col-md-6">
                 <div class="card">
-                    <div class="h6 card-header bg-primary text-light"
-                        data-bind="css: { withBtnXs: mode() != 'upload' }">
+                    <div class="h6 card-header bg-primary text-light withBtnXs">
                         <div class="d-flex justify-content-between">
                             <span> <i class="fas fa-sign-out-alt"></i> Source
                             </span>
                             <span>&nbsp;</span>
-                            <div class="form-check-inline" data-bind="visible: mode() == 'upload'">
-                                <input class="form-check-input" type="checkbox" id="includeRootFolder"
-                                    data-bind="checked: includeRootFolder" />
-                                <label class="form-check-label" for="includeRootFolder">
-                                    Include Root Folder
-                                </label>
-                            </div>
-                            <div data-bind="visible: mode() != 'upload'">
-                                <div class="form-inline">
-                                    <input type="text" class="mr-2" data-bind="textInput: downloadFileName"
-                                        placeholder="Drop or type the download file name here" />
-                                    <button class="btn btn-xs btn-light" data-bind="click: run"><i
-                                            class=" fas fa-download"></i>
-                                        Download</button>
+                            <div class="form-inline">
+                                <button class="btn btn-xs btn-light mr-2" data-bind="click: selectErrorOnly"><i
+                                        class="fas fa-check-square"></i>
+                                    Select Error Only</button>
+                                <input type="text" class="mr-2"
+                                    data-bind="textInput: zipFileName, visible: mode() != 'upload'"
+                                    placeholder="Drop or type the zip file name here" />
+                                <button class="btn btn-xs btn-light"
+                                    data-bind="click: run, visible: mode() != 'upload'"><i class=" fas fa-download"></i>
+                                    Download</button>
+                                <div class="form-check-inline" data-bind="visible: mode() == 'upload'">
+                                    <input class="form-check-input" type="checkbox" id="sendSyncRoot"
+                                        data-bind="checked: sendSyncRoot" />
+                                    <label class="form-check-label" for="sendSyncRoot">
+                                        Send Sync Root
+                                    </label>
                                 </div>
                             </div>
                         </div>
                     </div>
                     <div class="card-body">
-                        <div id="srcTree"></div>
+                        <table id="srcTree" class="table table-striped table-bordered table-hover table-sm w-100">
+                            <colgroup>
+                                <col width="30px">
+                                </col>
+                                <col width="*">
+                                </col>
+                                <col width="50px">
+                                </col>
+                                <col width="30px">
+                                </col>
+                            </colgroup>
+                            <thead>
+                                <tr>
+                                    <th></th>
+                                    <th>Name</th>
+                                    <th>Size</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <!-- Optionally define a row that serves as template, when new nodes are created: -->
+                            <tbody>
+                                <tr>
+                                    <td></td>
+                                    <td class="dz-filename"></td>
+                                    <td class="dz-size"></td>
+                                    <td class="dz-status"></td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -104,54 +156,105 @@
                         <div class="d-flex justify-content-between">
                             <span><i class="fas fa-sign-in-alt"></i> Destination</span>
                             <span>&nbsp;</span>
-                            <div>
-                                <div class="form-check-inline">
-                                    <input class="form-check-input" type="checkbox" id="reUploadErrorOnly"
-                                        data-bind="checked: reUploadErrorOnly" />
-                                    <label class="form-check-label" for="reUploadErrorOnly">
-                                        Re-Upload Error Only
-                                    </label>
-                                </div>
-                                <button class="btn btn-xs btn-light" data-bind="click: run"><i
-                                        class="fas fa-upload"></i>
-                                    Upload</button>
-                            </div>
+                            <button class="btn btn-xs btn-light" data-bind="click: run"><i class="fas fa-upload"></i>
+                                Upload</button>
                         </div>
                     </div>
                     <div class="card-body">
-                        <div id="destTree"></div>
+                        <table id="destTree" class="table table-striped table-bordered table-hover table-sm w-100">
+                            <colgroup>
+                                <col width="30px">
+                                </col>
+                                <col width="*">
+                                </col>
+                            </colgroup>
+                            <thead>
+                                <tr>
+                                    <th></th>
+                                    <th>Name</th>
+                                </tr>
+                            </thead>
+                            <!-- Optionally define a row that serves as template, when new nodes are created: -->
+                            <tbody>
+                                <tr>
+                                    <td></td>
+                                    <td class="dz-filename"></td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
         </div>
 
+        <div id="previews" class="row d-none dropzone-previews"></div>
+
         <hr />
 
         <footer>
             <p>
-                &copy; 2021 - RS Web Sync by
+                &copy; 2021 - RSWebSync by
                 <a href="mailto:NeetoSoft@gmail.com">NeetoSoft@gmail.com</a>
             </p>
         </footer>
     </div>
 
-    <script type="text/html" id="dzTemplate">
-        <div class="dz-file-preview dz-details file-row">
-            <div class="dz-filename"><span data-dz-name></span></div>
-            <div class="dz-size"><span data-dz-size></span></div>
-            <div class="dz-fullpath d-none d-md-block"></div>
-            <div class="dz-status"></div>
-            <div class="dz-error-message d-none d-lg-block"><span data-dz-errormessage></span></div>
-            <div class="dz-full-message d-none"></div>
-        </div>          
-    </script>
-    <script type="text/html" id="dzSpinner">
+    <!-- Modal -->
+    <div class="modal" id="configModal" tabindex="-1" role="dialog" aria-labelledby="configTitle" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <div class="modal-header bg-primary">
+                    <h5 class="modal-title text-light" id="configTitle">SSRS REST API Configuration</h5>
+                    <button type="button" class="close text-light" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <form>
+                        <div class="form-group row">
+                            <label for="accessToken" class="col-sm-3 col-form-label">Access Token</label>
+                            <div class="col-sm-9">
+                                <input class="form-control" id="accessToken" placeholder="Access Token"
+                                    data-bind="textInput: config().accessToken">
+                            </div>
+                        </div>
+                        <div class="form-group row">
+                            <label for="apiKey" class="col-sm-3 col-form-label">API Key</label>
+                            <div class="col-sm-9">
+                                <input class="form-control" id="apiKey" placeholder="API Key"
+                                    data-bind="textInput: config().apiKey">
+                            </div>
+                        </div>
+                        <div class="form-group row">
+                            <label for="userName" class="col-sm-3 col-form-label">Username</label>
+                            <div class="col-sm-9">
+                                <input class="form-control" id="username" placeholder="Username"
+                                    data-bind="textInput: config().username">
+                            </div>
+                        </div>
+                        <div class="form-group row">
+                            <label for="password" class="col-sm-3 col-form-label">Password</label>
+                            <div class="col-sm-9">
+                                <input class="form-control" type="password" id="password" placeholder="Password"
+                                    data-bind="textInput: config().password">
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="text/html" id="statusInProgress">
         <span><i class="fas fa-spinner fa-spin"></i></span>
     </script>
-    <script type="text/html" id="dzSuccess">
+    <script type="text/html" id="statusSuccess">
         <span class="text-success"><i class="fas fa-check"></i></span>
     </script>
-    <script type="text/html" id="dzError">
+    <script type="text/html" id="statusError">
         <span class="text-danger"><i class="fas fa-times"></i></span>
     </script>
 </body>

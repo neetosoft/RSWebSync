@@ -1,5 +1,8 @@
 ﻿import "bootstrap";
 import "./bootstrap.scss";
+import "./theme_1618041130349.css";
+import "./custom.scss";
+var bytes = require("bytes");
 import Dropzone from "dropzone";
 import "dropzone/dist/dropzone.css";
 import "@fortawesome/fontawesome-free/js/solid.js";
@@ -9,11 +12,13 @@ import "gasparesganga-jquery-loading-overlay";
 var { isText } = require("istextorbinary");
 import "jquery.fancytree/dist/modules/jquery.fancytree.ui-deps.js";
 import "jquery.fancytree/dist/modules/jquery.fancytree.js";
+import "jquery.fancytree/dist/modules/jquery.fancytree.table.js"
 import "jquery.fancytree/dist/skin-win8/ui.fancytree.css";
 import JSZip from "jszip";
-import saveAs from "jszip/vendor/FileSaver.js";
 import ko from "knockout";
 import _ from "lodash";
+import "regenerator-runtime/runtime";
+import { saveAs } from "file-saver";
 import toastr from "toastr";
 import "toastr/build/toastr.css";
 import url from "url";
@@ -28,102 +33,177 @@ Dropzone.autoDiscover = false;
  */
 var vm = window.vm = {
     cache: {},
+    statuses: {},
     validUrl: "",
     url: ko.observable(""),
     user: ko.observable({}),
+    config: ko.observable({}),
+    syncRoot: ko.observable(null),
     mode: ko.observable("download"),
-    includeRootFolder: ko.observable(false),
-    reUploadErrorOnly: ko.observable(false),
-    downloadFileName: ko.observable("RSWebSync"),
+    sendSyncRoot: ko.observable(false),
+    zipFileName: ko.observable("RSWebSync.zip"),
     sourceTree: () => $.ui.fancytree.getTree("#srcTree"),
     targetTree: () => $.ui.fancytree.getTree("#destTree"),
     queryUrl: (url.parse(window.location.href, true).query || {}).url || "",
-    remoteTreeId: () => ko.computed(() => vm.mode() == "upload" ? "#destTree" : "#srcTree", vm),
+    remoteTreeId: () => ko.computed(() => vm.mode() != "upload" ? "#srcTree" : "#destTree", vm),
 
     /**
      * Initialize the view model, dropzone and fancytree.
      */
-    init: () => {
-        $("#dropzone").addClass("dropzone");
-        vm.dropzone = new Dropzone("#dropzone", {
-            autoProcessQueue: false, accept: vm.loadLocal, createImageThumbnails: false, maxFilesize: null,
-            parallelUploads: 1, previewTemplate: $("#dzTemplate").html().trim(), processing: vm.upload, url: "#",
-            init: function () { this.hiddenFileInput.setAttribute("webkitdirectory", true); },
-            queuecomplete: () => vm.dropzone.options.autoProcessQueue = false
-        });
-        vm.dropzone.submitRequest = function (_, __, files) { this._finished(files, "locally resolved"); }
-
+    init() {
+        vm.initDropzone();
         vm.remoteTreeId = vm.remoteTreeId();
-        $("#srcTree").fancytree({ source: [], checkbox: true, selectMode: 3 });
-        $("#destTree").fancytree({ source: [], checkbox: true, selectMode: 1 });
+        $("#about").attr("href", "./info.html");
+        $("#srcTree").fancytree({
+            checkbox: true, extensions: ["table"], selectMode: 3, source: [],
+            titlesTabbable: true, // Add all node titles to TAB chain
+            quicksearch: true, // Jump to nodes when pressing first character
+            table: {
+                nodeColumnIdx: 1,     // render the node title into the 2nd column
+                checkboxColumnIdx: 0  // render the checkboxes into the 1st column
+            },
+            click(_e, data) { data.node.toggleSelected(); return data.node.selected; },
+            renderColumns(_e, data) {
+                var node = data.node,
+                    $tdList = $(node.tr).find(">td");
+
+                // (index #0 is rendered by fancytree by adding the checkbox)
+                // (index #1 is rendered by fancytree)
+                $tdList.eq(2).text(node.folder ? "" : bytes.format(node.data.size));
+                $tdList.eq(3).html(node.data.status);
+            },
+            select: (_e, _d) => vm.setSyncRoot()
+        });
+        $("#destTree").fancytree({
+            checkbox: true, extensions: ["table"], selectMode: 1, source: [],
+            titlesTabbable: true, // Add all node titles to TAB chain
+            quicksearch: true, // Jump to nodes when pressing first character
+            table: {
+                nodeColumnIdx: 1,     // render the node title into the 2nd column
+                checkboxColumnIdx: 0  // render the checkboxes into the 1st column
+            },
+            click(_e, data) { data.node.toggleSelected(); return data.node.selected; },
+        });
 
         ko.applyBindings(vm);
-        vm.setMode("download");
+        vm.setMode((url.parse(window.location.href, true).query || {}).mode || "download");
+        vm.statuses = { inProgress: $("#statusInProgress").html(), success: $("#statusSuccess").html(), error: $("#statusError").html() };
+    },
+
+    /**
+     * Clean and destroy dropzone if exists, then initialise.
+     */
+    initDropzone() {
+        if (!!vm.dropzone) {
+            vm.dropzone.removeAllFiles(true);
+            vm.dropzone.destroy();
+        }
+
+        vm.dropzone = new Dropzone("#dropzone", {
+            autoProcessQueue: false, accept: vm.loadLocal, createImageThumbnails: false, maxFilesize: null,
+            parallelUploads: 1, previewsContainer: "#previews", processing: vm.upload, url: "#",
+            init() { this.hiddenFileInput.setAttribute("webkitdirectory", true); },
+            queuecomplete: () => vm.dropzone.options.autoProcessQueue = false
+        });
+        vm.dropzone.submitRequest = function (_x, _f, files) { this._finished(files, "locally resolved"); }
     },
 
     /**
      * Toggle between Upload and Download mode.
      * @param {string} mode - The upload or download mode.
      */
-    setMode: (mode) => {
+    setMode(mode) {
         vm.clear();
         vm.mode(mode);
-
-        if (mode == "upload")
-            vm.dropzone.enable();
-        else
-            vm.dropzone.disable();
-
+        $(`#${mode}`).tab("show");
         vm.url(vm.validUrl || vm.queryUrl || "http://localhost/reports");
     },
 
     /**
      * Clear the user, url, dropzone, fancytrees, and toast.
      */
-    clear: () => {
+    clear() {
         vm.url("");
         vm.user({});
         vm.cache = {};
         toastr.remove();
+        vm.initDropzone();
+        vm.syncRoot(null);
+        vm.sendSyncRoot(false);
         vm.sourceTree().clear();
         vm.targetTree().clear();
-        vm.dropzone.removeAllFiles(true);
+        $(".card-header").LoadingOverlay("hide");
     },
 
     /**
      * Load the relevant (folder, report, dataset, and mobile report) catalog items from SSRS staring from the url.
      * @returns {void}
      */
-    loadRemotes: () => {
-        $(vm.remoteTreeId()).LoadingOverlay("show");
-        if (!vm.url().trim()) vm.setMode(vm.mode());
+    loadRemotes() {
+        $.ui.fancytree.getTree(vm.remoteTreeId()).clear();
+        var root = $.ui.fancytree.getTree(vm.remoteTreeId()).rootNode;
+        $(vm.remoteTreeId()).closest(".card").find(".card-header").LoadingOverlay("show");
+
+        if (!vm.url().trim())
+            vm.setMode(vm.mode());
+
+        if (!!root && !!root.children && !!root.children.length && root.children[0].title == "No data.")
+            root.tree.clear();
+
         var { cfg, opt, urls } = vm.getApiContexts();
         var flt = `startswith(Path, '${urls.length == 1 ? "/" : `/${urls[1]}`}') and (Type eq Model.CatalogItemType'Folder'${vm.mode() == "upload"
             ? ""
             : " or Type eq Model.CatalogItemType'Report' or Type eq Model.CatalogItemType'DataSet'"
             + " or Type eq Model.CatalogItemType'MobileReport' or Type eq Model.CatalogItemType'Resource'"})`;
-        MeApiFactory(cfg, fetch, cfg.basePath).getUserDetails(opt).then(usr =>
-            vm.user(usr), vm.restCallback);
+        MeApiFactory(cfg, fetch, cfg.basePath).getUserDetails(opt)
+            .then(usr =>
+                vm.user(usr), vm.restCallback);
         CatalogItemsApiFactory(cfg, fetch, cfg.basePath).getCatalogItems(2147483647, 0, flt, false, "Path", "*", opt)
             .then(json => {
-                vm.cache = {};
-                vm.validUrl = vm.url().trim();
+                [vm.cache, vm.validUrl] = [{}, vm.url().trim()];
+                json.value.reduce((promise, item) => {
+                    return promise
+                        .then(() =>
+                            //Wicked .rsmobile use the PackageId instead of its own Id to download by /CatalogItems(Guid)/Content/$value 
+                            item.Type == CatalogItemType.MobileReport
+                                ? CatalogItemsApiFactory(cfg, fetch, cfg.basePath).getCatalogItemProperties(item.Id, ["PackageId"], opt)
+                                    .then(props =>
+                                        item.Id = props.value[0].Value)
+                                : Promise.resolve(item.Id))
+                        .then(() => {
+                            var [parent, child] = [root.findFirst(node => node.key == item.ParentFolderId), root.findFirst(_node => _node.key == item.Id)];
 
-                for (var item of json.value) {
-                    if (item.Type == CatalogItemType.Folder) vm.cache[item.Path] = item;
-                    var node = $.ui.fancytree.getTree(vm.remoteTreeId()).rootNode;
-                    if (!!node && !!node.children && !!node.children.length && node.children[0].title == "No data.") node.tree.clear();
-                    var parent = node.findFirst(_node => _node.key == item.ParentFolderId);
-                    var child = node.findFirst(_node => _node.key == item.Id);
-                    if (!child) node = (parent || node).addNode({
-                        folder: item.Type == CatalogItemType.Folder, key: item.Id, path: item.Path, itemType: item.Type,
-                        title: `${item.Name}${vm.mode() == "upload" || item.Type == CatalogItemType.Folder ? "" : ` (${item.Type})`}`
-                    });
+                            if (!child) child = (parent || root).addNode({
+                                folder: item.Type == CatalogItemType.Folder, key: item.Id, item: item, size: item.Size,
+                                title: `${item.Name}${vm.mode() == "upload" || item.Type == CatalogItemType.Folder ? "" : ` (${item.Type})`}`
+                            });
 
-                    node.tree.expandAll();
-                }
-                toastr.success(`${vm.url()} loaded`);
-            }, vm.restCallback).finally(() => $(vm.remoteTreeId()).LoadingOverlay("hide"));
+                            child.item = () => item;
+
+                            if (vm.mode() == "upload" && item.Type == CatalogItemType.Folder)
+                                vm.cache[item.Path] = item;
+                        })
+                        .catch(vm.restCallback)
+                        .finally(() => {
+                            if (!item || item == _.last(json.value)) {
+                                root.tree.expandAll();
+                                toastr.success(`${vm.url()} loaded`);
+                                $(vm.remoteTreeId()).closest(".card").find(".card-header").LoadingOverlay("hide");
+                            }
+                        });
+                }, Promise.resolve());
+
+                $(vm.remoteTreeId()).tooltip("dispose").tooltip({
+                    html: true, sanitize: false, selector: ".dz-filename, .dz-size, .dz-status", title() {
+                        var node = $.ui.fancytree.getNode(this);
+                        return $(this).hasClass("dz-filename") ? `${node.item().Path} (${node.item().Type})` : node.data.message;
+                    }
+                });
+            })
+            .catch(reason => {
+                vm.restCallback(reason);
+                $(vm.remoteTreeId()).closest(".card").find(".card-header").LoadingOverlay("hide");
+            });
     },
 
     /**
@@ -133,38 +213,95 @@ var vm = window.vm = {
     getApiContexts() {
         var urls = vm.url().trim().split("/browse/");
         urls = _(urls).map(url => url.trim()).filter(url => !!url).value();
-        var cfg = new Configuration({ basePath: `${urls[0]}/api/v2.0` });
-        var opt = { mode: "cors", credentials: "include", origin: location.origin };
+        var [cfg, opt] = [new Configuration({ basePath: `${urls[0]}/api/v2.0` }), { mode: "cors", credentials: "include", origin: location.origin }];
+
+        var val = "";
+        if (!!(val = (vm.config().accessToken || "").trim()))
+            cfg.accessToken = val;
+        if (!!(val = (vm.config().apiKey || "").trim()))
+            cfg.apiKey = val;
+        if (!!(val = (vm.config().username || "").trim()))
+            cfg.username = val;
+        if (!!(val = (vm.config().password || "").trim()))
+            cfg.password = val;
+
         return { cfg, opt, urls };
     },
 
     /**
      * Load folder dragged and dropped in the dropzone to the Source tree.
-     * @param {Dropzone.DropzoneFile} file - The dropzone file to be accepted.
-     * @param {(error?: string | Error => void)} done - The accept callback, call with null or "" for done, otherwise for fail.
+     * @param {Dropzone.DropzoneFile} file - The added dropzone file.
+     * @param {(error?: string | Error) => void} done - The callback, pass null to accept.
      * @returns {void}
      */
-    loadLocal: (file, done) => {
+    loadLocal(file, done) {
         done();
-        var node = vm.sourceTree().rootNode;
-        var paths = file.fullPath.split("/");
-        $(file.previewElement).find(".dz-fullpath").text(file.fullPath);
-        if (!!node && !!node.children && !!node.children.length && node.children[0].title == "No data.") node.tree.clear();
+        var [parent, paths] = [vm.sourceTree().rootNode, (file.fullPath = file.fullPath || file.webkitRelativePath).split("/")];
+
+        if (!!parent && !!parent.children && !!parent.children.length && parent.children[0].title == "No data.")
+            parent.tree.clear();
 
         for (var path of paths) {
-            var child = node.findFirst(_node => _node.parent == node && _node.title == path);
-            node = !child ? node.addNode({ title: path, folder: path != _.last(paths) }) : child;
-            if (!node.folder) file.fancyTreeNode = node;
+            var child = parent.findFirst(node => node.parent == parent && node.title == path);
+            parent = !child ? parent.addNode({ title: path, folder: path != _.last(paths), size: path != _.last(paths) ? 0 : file.size }) : child;
+
+            if (!parent.folder)
+                [file.node, parent.file] = [() => parent, () => file];
         }
 
-        node.tree.expandAll();
+        parent.tree.expandAll();
+
+        if (!$("#srcTree").data || !$("#srcTree").data('tooltip'))
+            $("#srcTree").tooltip("dispose").tooltip({
+                html: true, sanitize: false, selector: ".dz-filename, .dz-size, .dz-status", title() {
+                    var node = $.ui.fancytree.getNode(this);
+                    return $(this).hasClass("dz-filename") ? node.getPath() : node.data.message;
+                }
+            });
+    },
+
+    /**
+     * Set the sync root for the source tree (the common lowest root folder).
+     */
+    setSyncRoot() {
+        if (!!vm.syncRoot())
+            vm.syncRoot().removeClass("bg-warning");
+
+        var nodes = vm.sourceTree().getSelectedNodes();
+        var joins = (!!nodes.length ? _.first(nodes).getParentList(true, true) : []) || [];
+
+        for (var node of _.drop(nodes, 1))
+            joins = _.intersection(joins, node.getParentList(true, true)) || [];
+
+        if (nodes.length == 1 && joins.length > 1 && nodes[0] == _.last(joins))
+            joins.pop();
+
+        vm.syncRoot(!!joins.length ? _.last(joins) : null);
+
+        if (!!vm.syncRoot())
+            vm.syncRoot().addClass("bg-warning");
+    },
+
+    /**
+     * Select the error nodes only from the source tree.
+     */
+    selectErrorOnly() {
+        if (vm.sourceTree().rootNode.hasChildren())
+            for (var node of vm.sourceTree().rootNode.children)
+                node.setSelected(false);
+
+        vm.sourceTree().rootNode.visit(node => {
+            if ((node.data.status || "").indexOf("danger") >= 0)
+                node.setSelected(true);
+        });
     },
 
     /**
      * Validate the inputs and run the action relevant to the selected mode. 
      * @returns {void}
      */
-    run: () => {
+    run() {
+        $(".card-header").LoadingOverlay("show");
         var err = false;
         toastr.remove();
         toastr.options.newestOnTop = false;
@@ -179,117 +316,176 @@ var vm = window.vm = {
             toastr.error("Source item(s) is (are) required");
         }
 
+        if (!vm.syncRoot()) {
+            err = true;
+            toastr.error("Can't find source sync root item");
+        }
+
         if (vm.mode() == "upload" && !vm.targetTree().getSelectedNodes().length) {
             err = true;
             toastr.error("Destination folder is required");
         }
 
         toastr.options.newestOnTop = true;
-        if (!!err) return;
 
-        if (vm.mode() != "upload")
-            vm.download(); else {
-            for (var file of vm.dropzone.files)
-                file.status = vm.reUploadErrorOnly() && file.status != Dropzone.ERROR ? file.status : Dropzone.QUEUED;
+        if (!err) {
+            toastr.info(`Start ${vm.mode()} ${vm.mode() != "upload" ? "from" : "to"} ${vm.url()}`);
 
-            vm.dropzone.options.autoProcessQueue = true;
-            vm.dropzone.processQueue();
-            $("#dropzone").tooltip("dispose").tooltip({
-                html: true, sanitize: false, selector: ".file-row", title: function () {
-                    return $(this).find(".dz-full-message").html();
+            if (vm.mode() != "upload")
+                vm.download();
+            else {
+                for (var file of vm.dropzone.files) {
+                    var node = file.node();
+                    file.status = !node.selected ? file.status : Dropzone.QUEUED;
+
+                    if (file.status == Dropzone.QUEUED) {
+                        [node.data.message, node.data.status] = ["", ""];
+                        node.render(true, false);
+                    }
                 }
-            });
+
+                vm.lastQueuedSelectedFile = _.findLast(vm.dropzone.getQueuedFiles(), qf => !!qf.node().selected);
+                vm.dropzone.options.autoProcessQueue = true;
+                vm.dropzone.processQueue();
+            }
         }
+        else
+            $(".card-header").LoadingOverlay("hide");
     },
 
     /**
-     * 
+     * Process the selected files from the Source tree to be downloaded from SSRS. 
      */
-    download: () => {
+    download() {
         var zip = new JSZip();
-        vm.cache[""] = vm.cache["/"] = zip;
         var { cfg, opt } = vm.getApiContexts();
-        $(vm.remoteTreeId()).LoadingOverlay("show");
-        var dict = { [CatalogItemType.Report]: ".rdl", [CatalogItemType.DataSet]: ".rsd", [CatalogItemType.MobileReport]: ".rsmobile" };
-        var nodes = _(vm.sourceTree().getSelectedNodes()).filter(sn => (sn.data.path || "/") != "/")
-            .orderBy([(sn => sn.data.path.split("/").length)], ["asc"]).value();
+        var cache = vm.cache = { [""]: zip, ["/"]: zip, [vm.syncRoot().item().Path]: zip };
+        var typeToExts = { [CatalogItemType.Report]: ".rdl", [CatalogItemType.DataSet]: ".rsd", [CatalogItemType.MobileReport]: ".rsmobile" };
+        var nodes = [];
+        vm.syncRoot().visit(node => {
+            if (!!node.selected || !!node.partsel) nodes.push(node);
+        });
+        nodes = _.orderBy(nodes, [node => node.item().Path.split("/").length, node => node.item().Path], ["asc", "asc"]);
         nodes.reduce((promise, node) => {
-            return promise.then(() => {
-                var paths = node.data.path.split("/");
-                var name = `${_.last(paths)}${dict[node.data.itemType] || ""}`;
-                var isTxt = !name.endsWith(".rsmobile") && (!!dict[node.data.itemType] || isText(name));
-                return node.folder
-                    ? Promise.resolve(vm.cache[node.data.path] = vm.cache[`${_.initial(paths).join("/")}`].folder(_.last(paths)))
-                    : CatalogItemsApiFactory(cfg, fetch, cfg.basePath).getCatalogItemContent(node.key, opt).then(response =>
-                        isTxt ? response.text() : response.blob(), vm.restCallback).then(content =>
-                            isTxt ? Promise.resolve(vm.cache[`${_.initial(paths).join("/")}`].file(name, content))
-                                : new Promise((resolve, reject) => {
-                                    var reader = new FileReader();
-                                    reader.onerror = () => reject(reader.error);
-                                    reader.onload = () => {
-                                        var base64 = reader.result.replace("data:", "").replace(/^.+,/, "");
-                                        resolve(vm.cache[`${_.initial(paths).join("/")}`].file(name, base64, { base64: true }));
-                                    };
-                                    reader.readAsDataURL(content);
-                                }), vm.restCallback);
-            }, vm.restCallback).finally(() => {
-                if (node == _.last(nodes))
-                    zip.generateAsync({ type: "blob" }).then(blob => saveAs(blob, vm.downloadFileName().trim() || "RSWebSync"))
-                        .finally(() => $(vm.remoteTreeId()).LoadingOverlay("hide"));
-            });
+            return promise
+                .then(() => {
+                    var paths = node.item().Path.split("/");
+                    var name = `${_.last(paths)}${typeToExts[node.item().Type] || ""}`;
+                    var isTxt = (!name.endsWith(".rsmobile") && !!typeToExts[node.item().Type]) || isText(name);
+
+                    if (!node.folder) {
+                        [node.data.message, node.data.status] = ["", vm.statuses.inProgress];
+                        node.render(true, false);
+                    }
+
+                    return node.folder
+                        ? Promise.resolve(cache[node.item().Path] = cache[`${_.initial(paths).join("/")}`].folder(_.last(paths)))
+                        : CatalogItemsApiFactory(cfg, fetch, cfg.basePath).getCatalogItemContent(node.key, opt)
+                            .then(response =>
+                                isTxt ? response.text() : response.blob())
+                            .then(content =>
+                                isTxt ? Promise.resolve(cache[`${_.initial(paths).join("/")}`].file(name, content))
+                                    : new Promise((resolve, reject) => {
+                                        var reader = new FileReader();
+                                        reader.onerror = () =>
+                                            reject({ message: reader.error.name, stack: reader.error.message });
+                                        reader.onload = () => {
+                                            var base64 = reader.result.replace("data:", "").replace(/^.+,/, "");
+                                            resolve(cache[`${_.initial(paths).join("/")}`].file(name, base64, { base64: true }));
+                                        };
+                                        reader.readAsDataURL(content);
+                                    }))
+                            .then(() =>
+                                vm.restCallback({ Id: 1, Type: node.item().Type }, node, name, "downloaded"));
+                })
+                .catch(response =>
+                    vm.restCallback(response, node, _.last(node.item().Path.split("/"))))
+                .finally(() => {
+                    if (node == _.last(nodes)) {
+                        zip.generateAsync({ type: "blob" })
+                            .then(blob => {
+                                saveAs(blob, vm.zipFileName().trim() || "RSWebSync.zip");
+                                toastr.info(`Finish ${vm.mode()} from ${vm.url()}`);
+                            })
+                            .catch(vm.restCallback)
+                            .finally(() =>
+                                $(".card-header").LoadingOverlay("hide"));
+                    }
+                });
         }, Promise.resolve());
     },
 
     /**
-     * Process each of the dropzone file to upload to SSRS. 
+     * Process the dropzone file to be uploaded to SSRS. 
      * @param {Dropzone.DropzoneFile} file - The dropzone file to be processed.
      */
-    upload: file => {
-        $(file.previewElement).find(".dz-full-message, .dz-error-message").html("");
-        if (!file.fancyTreeNode.selected) return vm.restCallback({ url: file.fullPath, status: 400, statusText: "Not selected in Source" }, file);
+    upload(file) {
+        var [cache, node] = [vm.cache, file.node()];
+
+        if (!node.selected)
+            return;
+
         var { cfg, opt } = vm.getApiContexts();
-        $(file.previewElement).find(".dz-status").html($("#dzSpinner").html());
-        var paths = _.drop(file.fullPath.split("/"), vm.includeRootFolder() ? 0 : 1);
-        var map = { ["rdl"]: CatalogItemType.Report, ["rsd"]: CatalogItemType.DataSet, ["rsmobile"]: CatalogItemType.MobileReport };
+        [node.data.message, node.data.status] = ["", vm.statuses.inProgress];
+        node.render(true, false);
+        var nodes = node.getParentList(true, true) || [];
+        var extToTypes = { ["rdl"]: CatalogItemType.Report, ["rsd"]: CatalogItemType.DataSet, ["rsmobile"]: CatalogItemType.MobileReport };
+        var paths = _(nodes).drop(nodes.findIndex(_node => _node == vm.syncRoot()) + (vm.sendSyncRoot() ? 0 : 1)).map(_node => _node.title).value();
         var reader = new FileReader();
-        reader.onerror = () => toastr.error(reader.error);
+        reader.onerror = () =>
+            vm.restCallback({ message: reader.error.name, stack: reader.error.message }, file, _.last(paths));
         reader.onload = () => {
             var content = reader.result.replace("data:", "").replace(/^.+,/, "");
             paths.reduce((promise, path) => {
-                return promise.then(parent => {
-                    var fullPath = `${parent.Path == "/" ? "" : parent.Path}/${path != _.last(paths) || !map[_.last(path.split("."))]
-                        ? path : path.replace(`.${_.last(path.split("."))}`, "")}`;
-                    return (!!vm.cache[fullPath]
-                        ? Promise.resolve({ value: [vm.cache[fullPath]] })
-                        : CatalogItemsApiFactory(cfg, fetch, cfg.basePath).getCatalogItems(2147483647, 0, `Path eq '${fullPath}'`, false, "Path", "*", opt))
-                        .then(items => {
-                            var [name, item] = [_.last(fullPath.split("/")), _.head((items || {}).value || [])];
-                            var type = path != _.last(paths) ? CatalogItemType.Folder : (map[_.last(path.split("."))] || CatalogItemType.Resource);
+                return promise
+                    .then(parent => {
+                        var fullPath = `${parent.Path == "/" ? "" : parent.Path}/${path != _.last(paths) || !extToTypes[_.last(path.split("."))]
+                            ? path : path.replace(`.${_.last(path.split("."))}`, "")}`;
+                        return (!!cache[fullPath]
+                            ? Promise.resolve({ value: [cache[fullPath]] })
+                            : CatalogItemsApiFactory(cfg, fetch, cfg.basePath)
+                                .getCatalogItems(2147483647, 0, `Path eq '${fullPath}'`, false, "Path", "*", opt))
+                            .then(items => {
+                                var [name, item] = [_.last(fullPath.split("/")), _.head((items || {}).value || [])];
+                                var type = path != _.last(paths) ? CatalogItemType.Folder : (extToTypes[_.last(path.split("."))] || CatalogItemType.Resource);
 
-                            if (!item) {
-                                if (path != _.last(paths))
-                                    return CatalogItemsApiFactory(cfg, fetch, cfg.basePath).addCatalogItem({
-                                        Name: name, Path: fullPath, Type: type, "@odata.type": `#Model.${type}`
-                                    }, opt).then(_item =>
-                                        vm.restCallback((vm.cache[fullPath] = _item), file, path, "added"));
-                                else
-                                    return CatalogItemsApiFactory(cfg, fetch, cfg.basePath).addCatalogItem({
-                                        Name: name, Path: fullPath, Type: type, Content: content, "@odata.type": `#Model.${type}`
-                                    }, opt).then(_item =>
-                                        vm.restCallback(_item, file, path, "added"));
-                            } else {
-                                if (path != _.last(paths))
-                                    return Promise.resolve(item).then(_item =>
-                                        vm.restCallback((vm.cache[fullPath] = _item), file, path, "exists"));
-                                else
-                                    return CatalogItemsApiFactory(cfg, fetch, cfg.basePath).updateCatalogItem(item.Id, {
-                                        Name: name, Path: fullPath, Type: type, Content: content, "@odata.type": `#Model.${type}`
-                                    }, Object.assign({}, opt, { method: "PUT" })).then(_item =>
-                                        vm.restCallback(_item, file, path, "updated"));
-                            }
-                        }, () => { });
-                }, response => vm.restCallback(response, file, path));
-            }, Promise.resolve(vm.cache[vm.targetTree().getSelectedNodes()[0].data.path]));
+                                if (!item) {
+                                    if (path != _.last(paths))
+                                        return CatalogItemsApiFactory(cfg, fetch, cfg.basePath).addCatalogItem({
+                                            Name: name, Path: fullPath, Type: type, "@odata.type": `#Model.${type}`
+                                        }, opt)
+                                            .then(_item =>
+                                                vm.restCallback((cache[fullPath] = _item), file, path, "added"));
+                                    else
+                                        return CatalogItemsApiFactory(cfg, fetch, cfg.basePath).addCatalogItem({
+                                            Name: name, Path: fullPath, Type: type, Content: content, "@odata.type": `#Model.${type}`
+                                        }, opt)
+                                            .then(_item =>
+                                                vm.restCallback(_item, file, path, "added"));
+                                } else {
+                                    if (path != _.last(paths))
+                                        return Promise.resolve(item)
+                                            .then(_item =>
+                                                vm.restCallback((cache[fullPath] = _item), file, path, "exists"));
+                                    else
+                                        //for some reason only PUT update successfully instead of PATCH as documented in SSRS REST API
+                                        return CatalogItemsApiFactory(cfg, fetch, cfg.basePath).updateCatalogItem(item.Id, {
+                                            Name: name, Path: fullPath, Type: type, Content: content, "@odata.type": `#Model.${type}`
+                                        }, Object.assign({}, opt, { method: "PUT" }))
+                                            .then(_item =>
+                                                vm.restCallback(_item, file, path, "updated"));
+                                }
+                            }, () => { });
+                    })
+                    .catch(response =>
+                        vm.restCallback(response, file, path))
+                    .finally(() => {
+                        if (file == vm.lastQueuedSelectedFile && path == _.last(paths)) {
+                            $(".card-header").LoadingOverlay("hide");
+                            toastr.info(`Finish upload to ${vm.url()}`);
+                        }
+                    });
+            }, Promise.resolve(vm.targetTree().getSelectedNodes()[0].item()));
         };
         reader.readAsDataURL(file);
     },
@@ -304,11 +500,11 @@ var vm = window.vm = {
     /**
      * Callback handler for SSRS REST API call with catalog item, reason or response object.
      * @param {CatalogItem | RejectedReason | Response} response - The catalog item, reason, or response object. 
-     * @param {Dropzone.DropzoneFile} file - The file object. 
+     * @param {Dropzone.DropzoneFile || FancyTreeNode} file - The file or node object. 
      * @param {String} path - The path string. 
      * @param {String} action - The action string. 
      */
-    restCallback: (response, file, path, action) => {
+    restCallback(response, file, path, action) {
         if (!file) {
             if (!!response.status) {
                 if (response.status >= 200 && response.status < 300)
@@ -322,24 +518,22 @@ var vm = window.vm = {
             }
         }
         else {
-            var dzFullMsg = $(file.previewElement).find(".dz-full-message");
-            var dzLastMsg = $(file.previewElement).find(".dz-error-message");
+            var node = !file.node ? file : file.node();
 
-            if (path == _.last(file.fullPath.split("/"))) {
+            if (path == (!file.node ? path : _.last(file.fullPath.split("/")))) {
                 file.status = !!response.Id || (!!response.status && response.status >= 200 && response.status < 300) ? Dropzone.SUCCESS : Dropzone.ERROR;
-                $(file.previewElement).find(".dz-status").html(file.status == Dropzone.SUCCESS ? $("#dzSuccess").html() : $("#dzError").html());
-                $(file.previewElement).toggleClass("dz-success", file.status == Dropzone.SUCCESS).toggleClass("dz-error", file.status == Dropzone.ERROR);
+                node.data.status = file.status == Dropzone.SUCCESS ? vm.statuses.success : vm.statuses.error;
+                node.render(true, false);
             }
 
-            if (!!response.Id)
-                dzLastMsg.html(`<div class='text-success'>${!path ? "" : `${path}=> `}${response.Type}: ${action}</div>`);
-            else if (!!response.status)
-                dzLastMsg.html(`<div class='text-${response.status >= 200 && response.status < 300 ? "success" : "danger"}'>` +
-                    `${!path ? "" : `${path}=> `}${response.status}: ${response.statusText}</div>`);
-            else
-                dzLastMsg.html(`<div class='text-danger'>${!path ? "" : `${path}=> `}${response.message}: ${response.stack}</div>`);
+            var msg = !!response.Id
+                ? `<div class='text-success'>${!path ? "" : `${path}=> `}${response.Type}: ${action}</div>`
+                : !!response.status
+                    ? `<div class='text-${response.status >= 200 && response.status < 300 ? "success" : "danger"}'>` +
+                    `${!path ? "" : `${path}=> `}${response.status}: ${response.statusText}</div>`
+                    : `<div class='text-danger'>${!path ? "" : `${path}=> `}${response.message}: ${response.stack}</div>`;
 
-            dzFullMsg.html(`${!dzFullMsg.html() ? "" : `${dzFullMsg.html()}<br/>`}${dzLastMsg.html()}`);
+            node.data.message = `${!node.data.message ? "" : `${node.data.message}<br/>`}${msg}`;
         }
 
         return Promise.resolve(response);
