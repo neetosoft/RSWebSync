@@ -34,160 +34,362 @@
         <div class="collapse navbar-collapse" id="navbarNavAltMarkup">
             <ul class="nav nav-pills mr-auto" id="pills-tab" role="tablist">
                 <li class="nav-item">
-                    <a class="nav-link active" id="download" data-toggle="pill" href="#" role="tab" aria-selected="true"
+                    <a class="nav-link active" id="download" data-toggle="pill" href="#pills-index" role="tab"
+                        aria-selected="true" aria-controls="pills-index"
                         data-bind="click: function() { window.vm.setMode('download'); }"><i class="fas fa-download"></i>
                         Download</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" id="upload" data-toggle="pill" href="#" role="tab" aria-selected="false"
+                    <a class="nav-link" id="upload" data-toggle="pill" href="#pills-index" role="tab"
+                        aria-controls="pills-index" aria-selected="false"
                         data-bind="click: function() { window.vm.setMode('upload'); }"><i class="fas fa-upload"></i>
                         Upload</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" id="about" href="#" role="tab" aria-selected="false"><i
-                            class="fas fa-info-circle"></i>
+                    <a class="nav-link" id="about" data-toggle="pill" href="#pills-about" role="tab"
+                        aria-controls="pills-index" aria-selected="false"
+                        data-bind="click: function() { window.vm.setMode('about'); }"><i class="fas fa-info-circle"></i>
                         About</a>
                 </li>
             </ul>
-            <span class="navbar-text text-primary" data-toggle="modal" data-target="#configModal" role="button">
+            <span class="navbar-text text-primary" data-toggle="modal" data-target="#configModal" role="button"
+                data-bind="visible: mode() != 'about'">
                 <i class="fas fa-user"></i> <span
                     data-bind="text: user().DisplayName || user().Username, attr: { title: user().Username }"></span>
+            </span>
+            <span class="navbar-text text-primary" data-bind="visible: mode() == 'about'">
+                <a href="https://github.com/NeetoSoft/RSWebSync">Fork me on <i class="fab fa-github"></i> GitHub</a>
             </span>
         </div>
     </nav>
     <div class="container-fluid body-content">
-        <div class="row pt-3">
-            <div class="col-md-12 input-group mb-3">
-                <input type="text" class="form-control" data-bind="textInput: url"
-                    placeholder="Drop or type SSRS Web Portal URL or its subfolder here" />
-                <div class="input-group-append">
-                    <button class="btn btn-primary" data-bind="click: loadRemotes"><i class="fas fa-sync"></i>
-                        Load</button>
-                    <button class="btn btn-warning" data-bind="click: clear"><i class="fas fa-times"></i>
-                        Clear</button>
-                </div>
-            </div>
-        </div>
-
-        <div class="row pb-3" data-bind="visible: mode() == 'upload'">
-            <div class="col-md-12">
-                <div id="dropzone" class="dropzone" title="nguik nguik">
-                    <div class="dz-message" data-dz-message>
-                        To upload => drop a folder here OR click here and drop / select a folder from the dialog
+        <div class="tab-content" id="pills-tabContent">
+            <div class="tab-pane show active" id="pills-index" role="tabpanel" aria-labelledby="pills-home-tab">
+                <div class="row pt-3">
+                    <div class="col-md-12 input-group mb-3">
+                        <input type="text" class="form-control" data-bind="textInput: url"
+                            placeholder="Drop or type SSRS Web Portal URL or its subfolder here" />
+                        <div class="input-group-append">
+                            <button class="btn btn-primary" data-bind="click: loadRemotes"><i class="fas fa-sync"></i>
+                                Load</button>
+                            <button class="btn btn-warning" data-bind="click: clear"><i class="fas fa-times"></i>
+                                Clear</button>
+                        </div>
                     </div>
                 </div>
-            </div>
-        </div>
 
-        <form>
-            <div class="form-group row">
-                <label for="syncRoot" class="col-md-1 col-form-label text-primary">Sync Root</label>
-                <div class="col-md-11">
-                    <input class="form-control" id="syncRoot" readonly
-                        data-bind="textInput: !syncRoot() ? '' : syncRoot().getPath().replace('//', '/')" />
-                </div>
-            </div>
-        </form>
-
-        <div class="row pb-3">
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="h6 card-header bg-primary text-light withBtnXs">
-                        <div class="d-flex justify-content-between">
-                            <span> <i class="fas fa-sign-out-alt"></i> Source
-                            </span>
-                            <span>&nbsp;</span>
-                            <div class="form-inline">
-                                <button class="btn btn-xs btn-light mr-2" data-bind="click: selectErrorOnly"><i
-                                        class="fas fa-check-square"></i>
-                                    Select Error Only</button>
-                                <input type="text" class="mr-2"
-                                    data-bind="textInput: zipFileName, visible: mode() != 'upload'"
-                                    placeholder="Drop or type the zip file name here" />
-                                <button class="btn btn-xs btn-light"
-                                    data-bind="click: run, visible: mode() != 'upload'"><i class=" fas fa-download"></i>
-                                    Download</button>
-                                <div class="form-check-inline" data-bind="visible: mode() == 'upload'">
-                                    <input class="form-check-input" type="checkbox" id="sendSyncRoot"
-                                        data-bind="checked: sendSyncRoot" />
-                                    <label class="form-check-label" for="sendSyncRoot">
-                                        Send Sync Root
-                                    </label>
-                                </div>
+                <div class="row pb-3" data-bind="visible: mode() == 'upload'">
+                    <div class="col-md-12">
+                        <div id="dropzone" class="dropzone" title="nguik nguik">
+                            <div class="dz-message" data-dz-message>
+                                To upload => drop a folder here OR click here and drop / select a folder from the dialog
                             </div>
                         </div>
                     </div>
-                    <div class="card-body">
-                        <table id="srcTree" class="table table-striped table-bordered table-hover table-sm w-100">
-                            <colgroup>
-                                <col width="30px">
-                                </col>
-                                <col width="*">
-                                </col>
-                                <col width="50px">
-                                </col>
-                                <col width="30px">
-                                </col>
-                            </colgroup>
-                            <thead>
-                                <tr>
-                                    <th></th>
-                                    <th>Name</th>
-                                    <th>Size</th>
-                                    <th>Status</th>
-                                </tr>
-                            </thead>
-                            <!-- Optionally define a row that serves as template, when new nodes are created: -->
-                            <tbody>
-                                <tr>
-                                    <td></td>
-                                    <td class="dz-filename"></td>
-                                    <td class="dz-size"></td>
-                                    <td class="dz-status"></td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
                 </div>
-            </div>
-            <div class="col-md-6" data-bind="visible: mode() == 'upload'">
-                <div class="card">
-                    <div class="h6 card-header bg-primary text-light withBtnXs">
-                        <div class="d-flex justify-content-between">
-                            <span><i class="fas fa-sign-in-alt"></i> Destination</span>
-                            <span>&nbsp;</span>
-                            <button class="btn btn-xs btn-light" data-bind="click: run"><i class="fas fa-upload"></i>
-                                Upload</button>
+
+                <form>
+                    <div class="form-group row">
+                        <label for="syncRoot" class="col-md-1 col-form-label text-primary">Sync Root</label>
+                        <div class="col-md-11">
+                            <input class="form-control" id="syncRoot" readonly
+                                data-bind="textInput: !syncRoot() ? '' : syncRoot().getPath().replace('//', '/')" />
                         </div>
                     </div>
-                    <div class="card-body">
-                        <table id="destTree" class="table table-striped table-bordered table-hover table-sm w-100">
-                            <colgroup>
-                                <col width="30px">
-                                </col>
-                                <col width="*">
-                                </col>
-                            </colgroup>
-                            <thead>
-                                <tr>
-                                    <th></th>
-                                    <th>Name</th>
-                                </tr>
-                            </thead>
-                            <!-- Optionally define a row that serves as template, when new nodes are created: -->
-                            <tbody>
-                                <tr>
-                                    <td></td>
-                                    <td class="dz-filename"></td>
-                                </tr>
-                            </tbody>
-                        </table>
+                </form>
+
+                <div class="row pb-3">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="h6 card-header bg-primary text-light withBtnXs">
+                                <div class="d-flex justify-content-between">
+                                    <span> <i class="fas fa-sign-out-alt"></i> Source
+                                    </span>
+                                    <span>&nbsp;</span>
+                                    <div class="form-inline">
+                                        <button class="btn btn-xs btn-light mr-2" data-bind="click: selectErrorOnly"><i
+                                                class="fas fa-check-square"></i>
+                                            Select Error Only</button>
+                                        <input type="text" class="mr-2"
+                                            data-bind="textInput: zipFileName, visible: mode() != 'upload'"
+                                            placeholder="Drop or type the zip file name here" />
+                                        <button class="btn btn-xs btn-light"
+                                            data-bind="click: run, visible: mode() != 'upload'"><i
+                                                class=" fas fa-download"></i>
+                                            Download</button>
+                                        <div class="form-check-inline" data-bind="visible: mode() == 'upload'">
+                                            <input class="form-check-input" type="checkbox" id="sendSyncRoot"
+                                                data-bind="checked: sendSyncRoot" />
+                                            <label class="form-check-label" for="sendSyncRoot">
+                                                Send Sync Root
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <table id="srcTree"
+                                    class="table table-striped table-bordered table-hover table-sm w-100">
+                                    <colgroup>
+                                        <col width="30px">
+                                        </col>
+                                        <col width="*">
+                                        </col>
+                                        <col width="50px">
+                                        </col>
+                                        <col width="30px">
+                                        </col>
+                                    </colgroup>
+                                    <thead>
+                                        <tr>
+                                            <th></th>
+                                            <th>Name</th>
+                                            <th>Size</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <!-- Optionally define a row that serves as template, when new nodes are created: -->
+                                    <tbody>
+                                        <tr>
+                                            <td></td>
+                                            <td class="dz-filename"></td>
+                                            <td class="dz-size"></td>
+                                            <td class="dz-status"></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6" data-bind="visible: mode() == 'upload'">
+                        <div class="card">
+                            <div class="h6 card-header bg-primary text-light withBtnXs">
+                                <div class="d-flex justify-content-between">
+                                    <span><i class="fas fa-sign-in-alt"></i> Destination</span>
+                                    <span>&nbsp;</span>
+                                    <button class="btn btn-xs btn-light" data-bind="click: run"><i
+                                            class="fas fa-upload"></i>
+                                        Upload</button>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <table id="destTree"
+                                    class="table table-striped table-bordered table-hover table-sm w-100">
+                                    <colgroup>
+                                        <col width="30px">
+                                        </col>
+                                        <col width="*">
+                                        </col>
+                                    </colgroup>
+                                    <thead>
+                                        <tr>
+                                            <th></th>
+                                            <th>Name</th>
+                                        </tr>
+                                    </thead>
+                                    <!-- Optionally define a row that serves as template, when new nodes are created: -->
+                                    <tbody>
+                                        <tr>
+                                            <td></td>
+                                            <td class="dz-filename"></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="previews" class="row d-none dropzone-previews"></div>
+            </div>
+            <div class="tab-pane" id="pills-about" role="tabpanel" aria-labelledby="about">
+                <div class="row pt-3">
+                    <div class="col-md-12">
+                        <div class="card">
+                            <div class="h6 card-header bg-primary text-light">
+                                <span> <i class="fas fa-info-circle"></i> About RSWebSync
+                                </span>
+                            </div>
+                            <div class="card-body">
+                                <h1 class="code-line" data-line-start=0 data-line-end=1><a
+                                        id="RSWebSync_0"></a>RSWebSync <img
+                                        src="https://travis-ci.com/neetosoft/RSWebSync.svg?branch=main"
+                                        alt="Travis CI Status" /></h1>
+                                <h2 class="code-line" data-line-start=1 data-line-end=2><a
+                                        id="Reporting_Service_Web_Sync_for_Bulk_Download_and_Upload_1"></a>Reporting
+                                    Service Web
+                                    Sync for Bulk Download and Upload</h2>
+                                <p class="has-line-data" data-line-start="2" data-line-end="3">
+                                    <strong>RSWebSync</strong> is a
+                                    web tool to enable bulk download and upload of <strong>Microsoft SQL Server
+                                        Reporting
+                                        Service (SSRS)</strong> items. This is a particularly annoying pet peeve of mine
+                                    for
+                                    SSRS when working on a project with a lot of reports to be updated. This tool
+                                    depends on the
+                                    SSRS REST API, which means that it will be compatible with SSRS 2016 and above only.
+                                </p>
+                                <h2 class="code-line" data-line-start=3 data-line-end=4><a id="Features_3"></a>Features
+                                </h2>
+                                <ul>
+                                    <li class="has-line-data" data-line-start="4" data-line-end="5">Bulk download from
+                                        SSRS to
+                                        local folder</li>
+                                    <li class="has-line-data" data-line-start="5" data-line-end="7">Bulk upload from
+                                        local to
+                                        SSRS folder</li>
+                                </ul>
+                                <hr>
+                                <h2 class="code-line" data-line-start=8 data-line-end=9><a id="Download_8"></a>Download
+                                </h2>
+                                <p class="has-line-data" data-line-start="9" data-line-end="10">The main workflow to be
+                                    done
+                                    when downloading:</p>
+                                <ul>
+                                    <li class="has-line-data" data-line-start="10" data-line-end="11">Enter the
+                                        <strong>[URL]</strong> in the provided textbox and click
+                                        <strong>[Load]</strong>.
+                                    </li>
+                                    <li class="has-line-data" data-line-start="11" data-line-end="12">The top right
+                                        corner
+                                        <strong>[User]</strong> will be updated with the current user.
+                                    </li>
+                                    <li class="has-line-data" data-line-start="12" data-line-end="13">The
+                                        <strong>[Source]</strong> tree will be populated with the list of folders and
+                                        items
+                                        under the <strong>[URL]</strong>.
+                                    </li>
+                                    <li class="has-line-data" data-line-start="13" data-line-end="14">Select the items
+                                        to be
+                                        downloaded on the <strong>[Source]</strong> tree.</li>
+                                    <li class="has-line-data" data-line-start="14" data-line-end="15">The <strong>[Sync
+                                            Root]</strong> textbox will be updated and marked in red on the
+                                        <strong>[Source]</strong> tree.
+                                    </li>
+                                    <li class="has-line-data" data-line-start="15" data-line-end="16">Enter the
+                                        <strong>[Zip
+                                            File Name]</strong> in the provided textbox and click
+                                        <strong>[Download]</strong>.
+                                    </li>
+                                    <li class="has-line-data" data-line-start="16" data-line-end="17">Click
+                                        <strong>[Select
+                                            Error Only]</strong> if there is any error and click
+                                        <strong>[Download]</strong> to
+                                        redo for the errors.
+                                    </li>
+                                    <li class="has-line-data" data-line-start="17" data-line-end="19">Click
+                                        <strong>[Clear]</strong> to go back to the initial state.
+                                    </li>
+                                </ul>
+                                <hr>
+                                <h2 class="code-line" data-line-start=20 data-line-end=21><a id="Upload_20"></a>Upload
+                                </h2>
+                                <p class="has-line-data" data-line-start="21" data-line-end="22">The main workflow to be
+                                    done
+                                    when uploading:</p>
+                                <ul>
+                                    <li class="has-line-data" data-line-start="22" data-line-end="23">Enter the
+                                        <strong>[URL]</strong> in the provided textbox and click
+                                        <strong>[Load]</strong>.
+                                    </li>
+                                    <li class="has-line-data" data-line-start="23" data-line-end="24">The top right
+                                        corner
+                                        <strong>[User]</strong> will be updated with the current user.
+                                    </li>
+                                    <li class="has-line-data" data-line-start="24" data-line-end="25">The
+                                        <strong>[Destination]</strong> tree will be populated with the list of folders
+                                        under the
+                                        <strong>[URL]</strong>.
+                                    </li>
+                                    <li class="has-line-data" data-line-start="25" data-line-end="26">Drop or select the
+                                        folder
+                                        to be uploaded on the <strong>[Dropzone]</strong> box.</li>
+                                    <li class="has-line-data" data-line-start="26" data-line-end="27">The
+                                        <strong>[Source]</strong> tree will be populated with the list of folders and
+                                        items
+                                        under the <strong>[Dropzone]</strong> folder.
+                                    </li>
+                                    <li class="has-line-data" data-line-start="27" data-line-end="28">Select the items
+                                        to be
+                                        uploaded on the <strong>[Source]</strong> tree.</li>
+                                    <li class="has-line-data" data-line-start="28" data-line-end="29">The <strong>[Sync
+                                            Root]</strong> textbox will be updated and marked in red on the
+                                        <strong>[Source]</strong> tree.
+                                    </li>
+                                    <li class="has-line-data" data-line-start="29" data-line-end="30">Toggle
+                                        <strong>[Send Sync
+                                            Root]</strong> to include or exclude the <strong>[Sync Root]</strong> folder
+                                        from
+                                        the upload.
+                                    </li>
+                                    <li class="has-line-data" data-line-start="30" data-line-end="31">Select the folder
+                                        to be
+                                        uploaded to on the <strong>[Destination]</strong> tree and click
+                                        <strong>[Upload]</strong>.
+                                    </li>
+                                    <li class="has-line-data" data-line-start="31" data-line-end="32">Click
+                                        <strong>[Select
+                                            Error Only]</strong> if there is any error and click
+                                        <strong>[Upload]</strong> to
+                                        redo for the errors.
+                                    </li>
+                                    <li class="has-line-data" data-line-start="32" data-line-end="34">Click
+                                        <strong>[Clear]</strong> to go back to the initial state.
+                                    </li>
+                                </ul>
+                                <hr>
+                                <p class="has-line-data" data-line-start="35" data-line-end="37">
+                                    <strong>NOTE</strong><br>
+                                    The <strong>[Dropzone]</strong> folder selection will only work correctly the first
+                                    time.
+                                </p>
+                                <p class="has-line-data" data-line-start="38" data-line-end="39">Make sure to either
+                                    click
+                                    <strong>[Clear]</strong> or the <strong>[Upload]</strong> link, or just refresh the
+                                    page
+                                    before using the <strong>[Dropzone]</strong> again.
+                                </p>
+                                <hr>
+                                <h2 class="code-line" data-line-start=41 data-line-end=42><a
+                                        id="Authentication_41"></a>Authentication</h2>
+                                <p class="has-line-data" data-line-start="42" data-line-end="43">Ahh yes, we’ve been
+                                    expecting
+                                    this. You’ll have to be authenticated before you can use this. There are a few ways
+                                    we can
+                                    do this, and the choice is yours:</p>
+                                <ol>
+                                    <li class="has-line-data" data-line-start="43" data-line-end="44">Update the SSRS
+                                        settings
+                                        in SSMS / Reporting Services / Properties / Advanced / User-defined:</li>
+                                </ol>
+                                <ul>
+                                    <li class="has-line-data" data-line-start="44" data-line-end="45">Set
+                                        AccessControlAllowCredential to True.</li>
+                                    <li class="has-line-data" data-line-start="45" data-line-end="46">Set
+                                        AccessControlAllowOrigin to this page/site origin.</li>
+                                    <li class="has-line-data" data-line-start="46" data-line-end="47">You might need to
+                                        restart
+                                        your reporting service afterward.</li>
+                                </ul>
+                                <ol start="2">
+                                    <li class="has-line-data" data-line-start="47" data-line-end="48">Download and host
+                                        it
+                                        locally on the same server as SSRS.</li>
+                                    <li class="has-line-data" data-line-start="48" data-line-end="49">Download and host
+                                        it on
+                                        another server in the local network and do option 1 for the host server.</li>
+                                    <li class="has-line-data" data-line-start="49" data-line-end="50">For the security
+                                        conscious, clone the repo and run npm install, audit, then build and do option 2
+                                        or 3.
+                                    </li>
+                                </ol>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div id="previews" class="row d-none dropzone-previews"></div>
 
         <hr />
 

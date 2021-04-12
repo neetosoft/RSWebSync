@@ -6,6 +6,7 @@ var bytes = require("bytes");
 import Dropzone from "dropzone";
 import "dropzone/dist/dropzone.css";
 import "@fortawesome/fontawesome-free/js/solid.js";
+import "@fortawesome/fontawesome-free/js/brands.js";
 import "@fortawesome/fontawesome-free/js/fontawesome.js";
 window.$ = window.jQuery = require("jquery");
 import "gasparesganga-jquery-loading-overlay";
@@ -53,7 +54,7 @@ var vm = window.vm = {
     init() {
         vm.initDropzone();
         vm.remoteTreeId = vm.remoteTreeId();
-        $("#about").attr("href", "./info.html");
+        //$("#about").attr("href", "./info.html");
         $("#srcTree").fancytree({
             checkbox: true, extensions: ["table"], selectMode: 3, source: [],
             titlesTabbable: true, // Add all node titles to TAB chain

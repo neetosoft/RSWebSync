@@ -4,8 +4,8 @@
   "description": "Reporting Service Web Sync",
   "main": "index.html",
   "scripts": {
-    "start": "parcel index.html info.html",
-    "test": "parcel build index.html info.html"
+    "start": "parcel index.html",
+    "test": "parcel build index.html"
   },
   "author": "NeetoSoft",
   "license": "ISC",

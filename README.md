@@ -1,4 +1,4 @@
-# RSWebSync
+# RSWebSync [![Build Status](https://travis-ci.com/neetosoft/RSWebSync.svg?branch=main)](https://travis-ci.com/neetosoft/RSWebSync)
 ## Reporting Service Web Sync for Bulk Download and Upload
 **RSWebSync** is a web tool to enable bulk download and upload of **Microsoft SQL Server Reporting Service (SSRS)** items. This is a particularly annoying pet peeve of mine for SSRS when working on a project with a lot of reports to be updated. This tool depends on the SSRS REST API, which means that it will be compatible with SSRS 2016 and above only.
 ## Features
