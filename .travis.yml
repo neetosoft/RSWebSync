@@ -1,0 +1,22 @@
+language: node_js
+node_js:
+  - node
+env:
+  global:
+    - RELEASE_NAME=RSWebSync
+before_script:
+  - rm -rf dist || exit 0
+before_deploy:
+  - tar -czf $RELEASE_NAME-$TRAVIS_TAG.tar.gz dist
+  - zip -r $RELEASE_NAME-$TRAVIS_TAG.zip dist        
+deploy:
+    provider: releases
+    api_key: $GITHUB_TOKEN
+    file: 
+      - $RELEASE_NAME-$TRAVIS_TAG.tar.gz
+      - $RELEASE_NAME-$TRAVIS_TAG.zip
+    skip_cleanup: true
+    on:
+        tags: true
+
+
